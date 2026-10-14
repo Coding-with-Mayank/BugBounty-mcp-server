@@ -1,0 +1,100 @@
+{
+  "name": "Daily Recon + New Subdomain Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 24 }]
+        }
+      },
+      "name": "Every 24 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300],
+      "id": "schedule-1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mcp-server:8080/tools/subdomain_enum",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "domain", "value": "={{ $json.target }}" }
+          ]
+        },
+        "options": { "timeout": 90000 }
+      },
+      "name": "Run Subdomain Enum",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [460, 300],
+      "id": "subdomain-1"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "filePath": "/data/subdomains_previous.txt"
+      },
+      "name": "Read Previous Results",
+      "type": "n8n-nodes-base.readBinaryFiles",
+      "position": [460, 480],
+      "id": "read-prev"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.new_subdomains.length }}",
+              "operation": "notEqual",
+              "value2": "0"
+            }
+          ]
+        }
+      },
+      "name": "New subdomains found?",
+      "type": "n8n-nodes-base.if",
+      "position": [700, 300],
+      "id": "if-new"
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.SLACK_WEBHOOK }}",
+        "text": "🚨 *New subdomains found!*\n\nTarget: {{ $json.target }}\nNew subdomains:\n```\n{{ $json.new_subdomains.join('\\n') }}\n```\n\nTotal now: {{ $json.total }}"
+      },
+      "name": "Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "position": [920, 220],
+      "id": "slack-alert"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "🚨 New subdomains found for {{ $json.target }}!\n\n{{ $json.new_subdomains.join('\\n') }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "name": "Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "position": [920, 380],
+      "id": "telegram-alert"
+    }
+  ],
+  "connections": {
+    "Every 24 hours": {
+      "main": [[{ "node": "Run Subdomain Enum", "type": "main", "index": 0 }]]
+    },
+    "Run Subdomain Enum": {
+      "main": [[{ "node": "New subdomains found?", "type": "main", "index": 0 }]]
+    },
+    "New subdomains found?": {
+      "main": [
+        [
+          { "node": "Slack Alert", "type": "main", "index": 0 },
+          { "node": "Telegram Alert", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "bug-bounty" }],
+  "notes": "Edit the 'target' value and add your SLACK_WEBHOOK/TELEGRAM_CHAT_ID to n8n environment variables."
+}

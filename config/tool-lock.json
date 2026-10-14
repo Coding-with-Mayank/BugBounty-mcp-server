@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-10-08T00:00:00Z",
+  "go_version": null,
+  "note": "The exact versions this repository pinned before config/tools.yaml replaced hard-coded pins (the last combination the project shipped). Install with: ./hunt install --lock config/tool-lock.json. Regenerate from a tested environment with: ./hunt snapshot",
+  "platform": "any",
+  "schema": 1,
+  "tools": {
+    "anew": {
+      "target": "github.com/tomnomnom/anew@v0.1.1",
+      "version": "0.1.1"
+    },
+    "dnsx": {
+      "target": "github.com/projectdiscovery/dnsx/cmd/dnsx@v1.2.2",
+      "version": "1.2.2"
+    },
+    "ffuf": {
+      "target": "github.com/ffuf/ffuf/v2@v2.1.0",
+      "version": "2.1.0"
+    },
+    "gau": {
+      "target": "github.com/lc/gau/v2/cmd/gau@v2.2.3",
+      "version": "2.2.3"
+    },
+    "gobuster": {
+      "target": "github.com/OJ/gobuster/v3@v3.6.0",
+      "version": "3.6.0"
+    },
+    "gowitness": {
+      "target": "github.com/sensepost/gowitness@v2.5.1",
+      "version": "2.5.1"
+    },
+    "httprobe": {
+      "target": "github.com/tomnomnom/httprobe@v0.2.0",
+      "version": "0.2.0"
+    },
+    "httpx": {
+      "target": "github.com/projectdiscovery/httpx/cmd/httpx@v1.6.10",
+      "version": "1.6.10"
+    },
+    "katana": {
+      "target": "github.com/projectdiscovery/katana/cmd/katana@v1.1.2",
+      "version": "1.1.2"
+    },
+    "naabu": {
+      "target": "github.com/projectdiscovery/naabu/v2/cmd/naabu@v2.3.3",
+      "version": "2.3.3"
+    },
+    "nuclei": {
+      "target": "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.3.9",
+      "version": "3.3.9"
+    },
+    "subfinder": {
+      "target": "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.6.6",
+      "version": "2.6.6"
+    },
+    "waybackurls": {
+      "target": "github.com/tomnomnom/waybackurls@v0.1.0",
+      "version": "0.1.0"
+    }
+  }
+}

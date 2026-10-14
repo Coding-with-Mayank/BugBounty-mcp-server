@@ -1,0 +1,181 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  Bug Bounty MCP Server — Docker Compose
+#
+#  Default (always on):   mcp-server, mongodb, redis
+#  Optional automation:   n8n  (add --profile automation)
+#
+#  Start:   ./setup.sh                      (creates .env WITH random secrets, then starts everything)
+#      or:  scripts/gen-env.sh && docker compose up -d
+#  + n8n:   docker compose --profile automation up -d
+#  Host access to the health API / databases / n8n UI (loopback only, opt-in):
+#           docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d
+#
+#  SECURE BY DEFAULT
+#   * Nothing is published to the host. The MCP client talks to the server through
+#     `docker exec -i bugbounty-mcp python -m mcp_server` (stdio) — no network port involved.
+#     MongoDB and Redis are reachable only by containers on the private bugbounty-net network.
+#   * There are no default passwords. MONGO_PASSWORD / REDIS_PASSWORD must be set (the
+#     `${VAR:?...}` below makes compose refuse to start otherwise); .env.example ships them empty.
+#   * The mcp-server container — the one that runs scanners against hostile input — does NOT
+#     receive the database or n8n secrets (they are blanked in its `environment:`).
+#   * n8n is pinned to a tested version (N8N_VERSION) and, when published, only on 127.0.0.1.
+# ═══════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── Core: Bug Bounty MCP Server ─────────────────────────────────────
+  mcp-server:
+    container_name: bugbounty-mcp
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TOOLS_REFRESH: ${TOOLS_REFRESH:-0}      # change it to force fresh tool versions (see `make refresh-tools`)
+        TOOL_LOCK: ${TOOL_LOCK:-}               # e.g. config/tool-lock.json for an exact, reproducible set
+        STRICT_TOOLS: ${STRICT_TOOLS:-0}
+        GO_IMAGE_TAG: ${GO_IMAGE_TAG:-alpine}
+        PYTHON_DEPS: ${PYTHON_DEPS:-latest}     # latest = newest compatible; locked = exactly requirements.lock (see `make build-locked`)
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Secrets that belong to OTHER services must not reach this container: it runs recon tools
+      # that process attacker-controlled data, and nothing in the application reads these.
+      MONGO_PASSWORD: ""
+      MONGO_URI: ""
+      REDIS_PASSWORD: ""
+      REDIS_URL: ""
+      N8N_USER: ""
+      N8N_PASSWORD: ""
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./screenshots:/app/screenshots
+      - ./wordlists:/app/wordlists
+      - ./nuclei-templates:/app/nuclei-templates
+      - ./logs:/app/logs
+      - ./config/subfinder:/root/.config/subfinder
+    # No `ports:` — see docker-compose.dev-ports.yml for the opt-in, loopback-only mapping.
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bugbounty-net
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 25s
+    security_opt:
+      - no-new-privileges:true
+    init: true                                  # reap finished scanner subprocesses instead of leaving zombies
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 6G
+    stdin_open: true
+    tty: true
+    command: python -m mcp_server
+
+  # ── MongoDB: Findings Storage (internal network only) ────────────────
+  mongodb:
+    image: mongo:7
+    container_name: bugbounty-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD is not set - run ./setup.sh (or scripts/gen-env.sh) to create .env with random secrets}
+      MONGO_INITDB_DATABASE: bugbounty
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    # No `ports:` — MongoDB is not published to the host.
+    networks:
+      - bugbounty-net
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Redis: Cache + Rate Limiting (internal network only) ─────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bugbounty-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is not set - run ./setup.sh (or scripts/gen-env.sh) to create .env with random secrets}
+    # The password is read from the environment inside the container, so it never appears in the
+    # process list, in `docker inspect`'s Cmd, or in the healthcheck command line.
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    # No `ports:` — Redis is not published to the host.
+    networks:
+      - bugbounty-net
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Optional: n8n Workflow Automation ────────────────────────────────
+  #  Provides: scheduled scans, Slack/Telegram alerts, visual pipelines
+  #  Enable:   docker compose --profile automation up -d
+  #  Access:   publish it first (docker-compose.dev-ports.yml) -> http://127.0.0.1:5678
+  #
+  #  AUTH: n8n removed HTTP basic auth in 1.0 — the N8N_BASIC_AUTH_* settings this file used to
+  #  carry did nothing. n8n now asks the FIRST visitor to create the owner account, so never
+  #  expose port 5678 beyond loopback until you have done that.
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-2.36.7}
+    container_name: bugbounty-n8n
+    profiles:
+      - automation
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=UTC
+      - DB_TYPE=sqlite
+      - N8N_DIAGNOSTICS_ENABLED=false           # no telemetry from a security tool's host
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - 'NODES_EXCLUDE=["n8n-nodes-base.executeCommand","n8n-nodes-base.localFileTrigger"]'
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n-workflows:/home/node/.n8n/workflows
+    networks:
+      - bugbounty-net
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - mcp-server
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  n8n_data:
+    driver: local
+
+networks:
+  bugbounty-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

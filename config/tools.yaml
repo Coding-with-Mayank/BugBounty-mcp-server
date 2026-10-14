@@ -1,0 +1,262 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  config/tools.yaml — the ONE place external tools are defined.
+#
+#  Read by: install-native.sh, the Dockerfile, `hunt doctor|update|install`,
+#  mcp_server/capabilities.py (REQUIRED_TOOLS / OPTIONAL_TOOLS) and CI.
+#  Nothing else in the repository may hard-code a tool version.
+#
+#  There is deliberately NO "version to install" field. Fresh installs and
+#  updates resolve the newest stable release INSIDE the tested major at run
+#  time. What this file records is the compatibility contract:
+#
+#    min_version   oldest release the project code is known to work with
+#                  (the versions this repo shipped pinned before this file
+#                  existed — so nothing here can ever be a downgrade)
+#    tested_major  the major version the project is validated against.
+#                  Go modules carry the major in their import path
+#                  (nuclei/v3), so "latest within tested_major" can never
+#                  jump to an untested major by accident. A newer major is
+#                  REPORTED and only installed with `hunt update --major`.
+#    major_in_path set false for a module whose import path has no /vN suffix
+#    max_version   optional hard ceiling (inclusive) inside tested_major, for
+#                  a release known/suspected to break us. Above it counts as
+#                  "untested" and needs `--major`, same as a new major.
+#    auto_update   safe   -> patch/minor releases may be applied by
+#                            `hunt update --auto` (the opt-in timer)
+#                  manual -> only ever updated by an explicit `hunt update`
+#
+#  Versions of 0.x modules: semver gives no stability promise, so a 0.x minor
+#  bump is treated like a major (reported, never automatic).
+#
+#  Trust model: install_method "go-install" builds from the Go module proxy,
+#  whose content is checksum-verified by Go's sum database. `module` MUST sit
+#  under github.com/<repo> (enforced when this file is loaded) so a manifest
+#  edit can't quietly redirect an install to a different owner.
+# ═══════════════════════════════════════════════════════════════════════════
+schema: 1
+
+settings:
+  check_interval_hours: 24      # upstream lookups are cached this long
+  network_timeout_seconds: 8    # per request
+  min_go_version: "1.21"        # <1.21 can't auto-fetch the toolchain newer tools need
+
+tools:
+
+  subfinder:
+    purpose: passive subdomain enumeration
+    required: true
+    repo: projectdiscovery/subfinder
+    module: github.com/projectdiscovery/subfinder
+    package: cmd/subfinder
+    tested_major: 2
+    min_version: "2.6.6"
+    auto_update: safe
+    version_args: [-version]
+    version_regex: 'Current Version:\s*v?(\d+\.\d+\.\d+)'
+    compat:
+      - help_args: [-h]
+        flags: [-d, -silent, -all, -recursive]
+
+  httpx:
+    purpose: alive check + tech detect
+    required: true
+    repo: projectdiscovery/httpx
+    module: github.com/projectdiscovery/httpx
+    package: cmd/httpx
+    tested_major: 1
+    min_version: "1.6.10"
+    auto_update: safe
+    version_args: [-version]
+    version_regex: 'Current Version:\s*v?(\d+\.\d+\.\d+)'
+    # The Python `httpx` library installs a CLI with the SAME name; identity is
+    # verified so that one is never mistaken for this one.
+    identity_regex: 'projectdiscovery|current version'
+    compat:
+      - help_args: [-h]
+        flags: [-l, -silent, -json, -status-code, -title, -tech-detect, -web-server,
+                -content-length, -follow-redirects, -timeout, -screenshot, -srd]
+
+  nuclei:
+    purpose: vulnerability scanner
+    required: true
+    repo: projectdiscovery/nuclei
+    module: github.com/projectdiscovery/nuclei
+    package: cmd/nuclei
+    tested_major: 3
+    min_version: "3.3.9"
+    auto_update: safe
+    version_args: [-version]
+    version_regex: 'Engine Version:\s*v?(\d+\.\d+\.\d+)'
+    compat:
+      - help_args: [-h]
+        flags: [-u, -l, -severity, -tags, -silent, -json, -rate-limit, -bulk-size]
+
+  naabu:
+    purpose: port scanner
+    required: true
+    repo: projectdiscovery/naabu
+    module: github.com/projectdiscovery/naabu
+    package: cmd/naabu
+    tested_major: 2
+    min_version: "2.3.3"
+    auto_update: safe
+    version_args: [-version]
+    version_regex: 'Current Version:\s*v?(\d+\.\d+\.\d+)'
+    compat:
+      - help_args: [-h]
+        flags: [-host, -top-ports, -json, -silent]
+
+  katana:
+    purpose: web crawler
+    required: true
+    repo: projectdiscovery/katana
+    module: github.com/projectdiscovery/katana
+    package: cmd/katana
+    tested_major: 1
+    min_version: "1.1.2"
+    auto_update: safe
+    version_args: [-version]
+    version_regex: 'Current Version:\s*v?(\d+\.\d+\.\d+)'
+    compat:
+      - help_args: [-h]
+        flags: [-u, -d, -jc, -kf, -fx, -silent]
+
+  dnsx:
+    purpose: DNS enumeration
+    required: true
+    repo: projectdiscovery/dnsx
+    module: github.com/projectdiscovery/dnsx
+    package: cmd/dnsx
+    tested_major: 1
+    min_version: "1.2.2"
+    auto_update: safe
+    version_args: [-version]
+    version_regex: 'Current Version:\s*v?(\d+\.\d+\.\d+)'
+    compat:
+      - help_args: [-h]
+        flags: [-silent, -json, -resp, -a, -cname, -mx, -ns, -txt, -soa, -d]
+
+  waybackurls:
+    purpose: historical URLs (Wayback Machine)
+    required: true
+    repo: tomnomnom/waybackurls
+    module: github.com/tomnomnom/waybackurls
+    package: ""
+    tested_major: 0
+    min_version: "0.1.0"
+    auto_update: safe
+    version_args: []            # has no version flag, and reads stdin — never executed;
+                                # the version comes from the binary's embedded Go build info
+
+  gau:
+    purpose: historical URLs (multiple sources)
+    required: true
+    repo: lc/gau
+    module: github.com/lc/gau
+    package: cmd/gau
+    tested_major: 2
+    min_version: "2.2.3"
+    auto_update: safe
+    version_args: [--version]
+    compat:
+      - help_args: [-h]
+        flags: [--subs]
+
+  ffuf:
+    purpose: directory/parameter fuzzer
+    required: true
+    repo: ffuf/ffuf
+    module: github.com/ffuf/ffuf
+    package: ""
+    tested_major: 2
+    min_version: "2.1.0"
+    auto_update: safe
+    version_args: [-V]
+    compat:
+      - help_args: [-h]
+        flags: [-u, -w, -mc, -ac, -c, -t, -json]
+
+  gobuster:
+    purpose: DNS-based subdomain brute-force
+    required: true
+    repo: OJ/gobuster
+    module: github.com/OJ/gobuster
+    package: ""
+    tested_major: 3
+    min_version: "3.6.0"
+    auto_update: safe
+    version_args: [version]
+    compat:
+      - help_args: [dns, -h]
+        flags: [-d, -w, -t, -q, --no-color]
+
+  gowitness:
+    purpose: web screenshots — falls back to httpx's built-in screenshot flag if missing
+    required: false
+    repo: sensepost/gowitness
+    module: github.com/sensepost/gowitness
+    package: ""
+    major_in_path: false        # the pre-manifest pin was github.com/sensepost/gowitness@v2.5.1
+                                # (no /v2 in the path) — kept exactly, not "corrected" untested
+    tested_major: 2             # v3 renamed the CLI (`gowitness scan ...`); the handlers
+                                # speak the v2 CLI, so v3 is reported but never auto-installed
+    min_version: "2.5.1"
+    auto_update: safe
+    version_args: [version]
+    compat:
+      - help_args: [file, -h]
+        flags: [-f, --screenshot-path, --timeout, --disable-db]
+      - help_args: [single, -h]
+        flags: [-u]
+
+  anew:
+    purpose: deduplication — not currently invoked by any tool handler
+    required: false
+    repo: tomnomnom/anew
+    module: github.com/tomnomnom/anew
+    package: ""
+    tested_major: 0
+    min_version: "0.1.1"
+    auto_update: safe
+    version_args: []            # reads stdin; never executed (see waybackurls)
+
+  httprobe:
+    purpose: fast alive-host probing
+    required: false
+    repo: tomnomnom/httprobe
+    module: github.com/tomnomnom/httprobe
+    package: ""
+    tested_major: 0
+    min_version: "0.2.0"
+    auto_update: safe
+    version_args: []            # reads stdin; never executed
+
+  interactsh-client:
+    purpose: out-of-band interaction catcher (blind SSRF/XSS/RCE)
+    required: false
+    repo: projectdiscovery/interactsh
+    module: github.com/projectdiscovery/interactsh
+    package: cmd/interactsh-client
+    tested_major: 1
+    min_version: "1.0.0"
+    auto_update: safe
+    version_args: [-version]
+    version_regex: 'Current Version:\s*v?(\d+\.\d+\.\d+)'
+
+# Assets are data that belongs to a tool but versions independently of it.
+# The nuclei ENGINE and its TEMPLATES are separate dependencies: updating the
+# binary does not update the templates, and each is reported on its own.
+assets:
+  nuclei-templates:
+    purpose: vulnerability templates for nuclei
+    requires_tool: nuclei
+    repo: projectdiscovery/nuclei-templates
+    update_args: [-update-templates]
+    version_args: [-templates-version]
+
+# Tools that come from the OS package manager. Reported by doctor, never
+# installed by this project (it needs no root and must stay that way).
+system_tools:
+  nmap:  { purpose: network mapper,      hint: "apt install nmap | brew install nmap" }
+  dig:   { purpose: DNS lookups,         hint: "apt install dnsutils | brew install bind" }
+  whois: { purpose: WHOIS lookups,       hint: "apt install whois | brew install whois" }

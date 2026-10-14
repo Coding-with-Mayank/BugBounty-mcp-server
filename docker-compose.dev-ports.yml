@@ -1,0 +1,29 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  OPT-IN host access — every port is bound to 127.0.0.1 (this machine only).
+#
+#    docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d
+#    (add --profile automation for the n8n UI)
+#
+#  Not needed for normal use: the MCP client reaches the server over
+#  `docker exec -i bugbounty-mcp python -m mcp_server` (stdio), not over a port.
+#  Never change 127.0.0.1 to 0.0.0.0 here — these services have no
+#  authentication that is meant to face a network.
+# ═══════════════════════════════════════════════════════════════════════
+services:
+  mcp-server:
+    environment:
+      HEALTH_HOST: 0.0.0.0              # inside the container, so the loopback-only mapping below can reach it
+    ports:
+      - "127.0.0.1:8080:8080"           # health / capabilities API
+
+  mongodb:
+    ports:
+      - "127.0.0.1:27017:27017"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  n8n:
+    ports:
+      - "127.0.0.1:5678:5678"

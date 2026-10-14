@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+# ./hunt — entry point for the CLI. Works from a fresh clone and before install.
+#
+#   ./hunt doctor        versions + health          ./hunt update --check   what's newer
+#   ./hunt update        update safely              ./hunt rollback <tool>  undo
+# (run ./hunt --help for everything)
+#
+# After ./install-native.sh this simply hands over to bin/hunt, which sets PATH
+# so the selected tool copies are found. Before installing it uses whatever
+# python3 is available, so `./hunt doctor` can tell you what's missing.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "$HERE/bin/hunt" ]; then
+    exec "$HERE/bin/hunt" "$@"
+fi
+if [ -x "$HERE/.venv/bin/python" ]; then
+    exec "$HERE/.venv/bin/python" "$HERE/hunt.py" "$@"
+fi
+# No virtualenv yet. Only carry on if the system Python already has what hunt needs.
+if ! python3 -c "import pydantic, yaml" 2>/dev/null; then
+    echo "Not installed yet: this project's Python dependencies are missing." >&2
+    echo "Run ./install-native.sh (no sudo, installs into this folder), then try again." >&2
+    exit 1
+fi
+exec python3 "$HERE/hunt.py" "$@"

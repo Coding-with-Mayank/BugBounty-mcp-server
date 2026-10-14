@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════
+#  Bug Bounty MCP Server — Python Dependencies
+#  Kept intentionally slim for fast, reliable builds
+# ═══════════════════════════════════════════════════════
+
+# MCP Protocol (Anthropic SDK — works with Claude + any MCP client)
+mcp>=1.0.0,<3.0.0
+# Supported on BOTH SDK generations: server.py registers its handlers through
+# mcp_server/mcp_compat.py (1.x decorators / 2.x add_request_handler).
+# Tested against 1.30 and 2.3 (tests + a live stdio session, see
+# scripts/mcp_smoke.py); CI re-tests against the newest release every week.
+# The ceiling is <3 only because 3.x doesn't exist yet to test against —
+# Dependabot will propose it and CI will say whether it works.
+
+# Pydantic (settings + validation)
+pydantic>=2.5.0
+pydantic-settings>=2.2.0
+
+# HTTP clients
+httpx>=0.27.0
+aiohttp>=3.9.0
+requests>=2.32.0
+
+# Async utilities
+aiofiles>=23.2.0
+
+# Web framework (REST API / status endpoint)
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# Config
+python-dotenv>=1.0.0
+
+# Database
+motor>=3.4.0
+pymongo>=4.7.0
+
+# Cache
+redis>=5.0.0
+
+# DNS
+dnspython>=2.6.0
+
+# WHOIS
+python-whois>=0.9.4
+tldextract>=5.1.2
+
+# Intelligence APIs (all optional — graceful fallback if key missing)
+shodan>=1.31.0
+
+# HTML parsing (for manual recon helpers)
+beautifulsoup4>=4.12.3
+lxml>=5.2.0
+
+# Output / reporting
+rich>=13.7.0
+tabulate>=0.9.0
+jinja2>=3.1.4
+markdown>=3.6.0
+
+# Utilities
+click>=8.1.7
+pyyaml>=6.0.2
+orjson>=3.9.0
+loguru>=0.7.2
+psutil>=5.9.8
+colorama>=0.4.6
+python-dateutil>=2.9.0

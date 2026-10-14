@@ -1,0 +1,12 @@
+# Development / CI tooling. NOT needed to run the server (that is requirements.txt).
+#   pip install -r requirements.txt -r requirements-dev.txt
+# Lower bounds only: CI wants current linters; the weekly freshness job tests the newest.
+pytest>=8.0
+pytest-asyncio>=0.23
+ruff>=0.5
+mypy>=1.10
+types-PyYAML>=6.0
+uv>=0.4              # scripts/refresh-lock.sh
+zizmor>=1.0          # GitHub Actions security linter (tests/test_workflow_security.py + CI)
+pip-audit>=2.7       # known-vulnerability check of requirements.lock
+shellcheck-py>=0.10  # shell lint, no system package needed

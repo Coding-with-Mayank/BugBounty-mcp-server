@@ -1,0 +1,32 @@
+# Subfinder provider configuration
+# Add API keys here for better subdomain discovery.
+# Free keys give significantly more results.
+#
+# Get keys at:
+#   Shodan:         https://account.shodan.io
+#   Censys:         https://censys.io/register
+#   SecurityTrails: https://securitytrails.com/app/account
+#   VirusTotal:     https://www.virustotal.com/gui/join-us
+#   PassiveTotal:   https://community.riskiq.com/registration
+#   GitHub:         https://github.com/settings/tokens (scope: read:org)
+
+binaryedge:
+  - ""
+certspotter:
+  - ""
+chaos:
+  - ""
+c99:
+  - ""
+github:
+  - ""
+intelx:
+  - ""
+passivetotal:
+  - ""
+securitytrails:
+  - ""
+shodan:
+  - ""
+virustotal:
+  - ""
